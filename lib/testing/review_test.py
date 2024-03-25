@@ -1,52 +1,46 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-
-from conftest import SQLITE_URL
-from models import Game, Review
+from conftest import SQLITE_URL  # Assuming SQLITE_URL is defined in conftest.py
+from models import Base, Game, Review  # Import your models and Base from models.py
 
 class TestReview:
-    '''Class Review in models.py'''
+    @classmethod
+    def setup_class(cls):
+        # Create the engine
+        cls.engine = create_engine(SQLITE_URL)
+        # Create all tables in the database
+        Base.metadata.create_all(cls.engine)
+        # Create a session
+        cls.Session = sessionmaker(bind=cls.engine)
+        # Add test data
+        cls.session = cls.Session()
+        cls.skyrim = Game(
+            title="The Elder Scrolls V: Skyrim",
+            platform="PC",
+            genre="Adventure",
+            price=20
+        )
+        cls.session.add(cls.skyrim)
+        cls.session.commit()
+        cls.skyrim_review = Review(
+            score=10,
+            comment="Wow, what a game",
+            game_id=cls.skyrim.id
+        )
+        cls.session.add(cls.skyrim_review)
+        cls.session.commit()
 
-    # start session, reset db
-    engine = create_engine(SQLITE_URL)
-    Session = sessionmaker(bind=engine)
-    session = Session()
-
-    # add test data
-    skyrim = Game(
-        title="The Elder Scrolls V: Skyrim",
-        platform="PC",
-        genre="Adventure",
-        price=20
-    )
-
-    session.add(skyrim)
-    session.commit()
-
-    skyrim_review = Review(
-        score=10,
-        comment="Wow, what a game",
-        game_id=skyrim.id
-    )
-
-    session.add(skyrim_review)
-    session.commit()
+    @classmethod
+    def teardown_class(cls):
+        # Close the session and remove the tables
+        cls.session.close()
+        Base.metadata.drop_all(cls.engine)
 
     def test_game_has_correct_attributes(self):
-        '''has attributes "id", "score", "comment", "game_id".'''
-        assert(
-            all(
-                hasattr(
-                    TestReview.skyrim_review, attr
-                ) for attr in [
-                    "id",
-                    "score",
-                    "comment",
-                    "game_id",
-                ]))
+        assert hasattr(self.skyrim_review, "id")
+        assert hasattr(self.skyrim_review, "score")
+        assert hasattr(self.skyrim_review, "comment")
+        assert hasattr(self.skyrim_review, "game_id")
 
     def test_knows_about_associated_game(self):
-        '''has attribute "game" that is the "Game" object associated with its game_id.'''
-        assert(
-            TestReview.skyrim_review.game == TestReview.skyrim
-        )
+        assert self.skyrim_review.game == self.skyrim

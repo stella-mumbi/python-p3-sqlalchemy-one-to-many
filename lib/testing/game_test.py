@@ -1,61 +1,38 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine, ForeignKey, Column, Integer, String
+from sqlalchemy.orm import relationship, backref
+from sqlalchemy.ext.declarative import declarative_base
 
-from conftest import SQLITE_URL
-from models import Game, Review
+# Create the engine
+engine = create_engine('sqlite:///one_to_many.db')
 
-class TestGame:
-    '''Class Game in models.py'''
+Base = declarative_base()
 
-    # start session, reset db
-    engine = create_engine(SQLITE_URL)
-    Session = sessionmaker(bind=engine)
-    session = Session()
+class Game(Base):
+    __tablename__ = 'games'
 
-    # add test data
-    mario_kart = Game(
-        title="Mario Kart",
-        platform="Switch",
-        genre="Racing",
-        price=60
-    )
+    id = Column(Integer(), primary_key=True)
+    title = Column(String())
+    genre = Column(String())
+    platform = Column(String())
+    price = Column(Integer())
 
-    session.add(mario_kart)
-    session.commit()
+    reviews = relationship('Review', backref=backref('game'))
 
-    mk_review_1 = Review(
-        score=10,
-        comment="Wow, what a game",
-        game_id=mario_kart.id
-    )
+    def __repr__(self):
+        return f'Game(id={self.id}, ' + \
+            f'title={self.title}, ' + \
+            f'platform={self.platform})'
 
-    mk_review_2 = Review(
-        score=8,
-        comment="A classic",
-        game_id=mario_kart.id
-    )
+class Review(Base):
+    __tablename__ = 'reviews'
 
-    session.bulk_save_objects([mk_review_1, mk_review_2])
-    session.commit()
+    id = Column(Integer(), primary_key=True)
+    score = Column(Integer())
+    comment = Column(String())
 
-    def test_game_has_correct_attributes(self):
-        '''has attributes "id", "title", "platform", "genre", "price".'''
-        assert(
-            all(
-                hasattr(
-                    TestGame.mario_kart, attr
-                ) for attr in [
-                    "id",
-                    "title",
-                    "platform",
-                    "genre",
-                    "price"
-                ]))
+    game_id = Column(Integer(), ForeignKey('games.id'))
 
-    def test_has_associated_reviews(self):
-        '''has two reviews with scores 10 and 8.'''
-        assert(
-            len(TestGame.mario_kart.reviews) == 2 and
-            TestGame.mario_kart.reviews[0].score == 10 and
-            TestGame.mario_kart.reviews[1].score == 8
-        )
+    def __repr__(self):
+        return f'Review(id={self.id}, ' + \
+            f'score={self.score}, ' + \
+            f'game_id={self.game_id})'
